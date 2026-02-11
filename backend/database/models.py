@@ -259,6 +259,18 @@ def update_segment(segment_id: str, **kwargs) -> Optional[dict]:
     return result.data[0] if result.data else None
 
 
+def get_segment(segment_id: str) -> Optional[dict]:
+    """
+    Get a single segment by ID.
+
+    Returns:
+        dict or None: Segment record including transcript_id
+    """
+    client = get_client()
+    result = client.table(SEGMENTS_TABLE).select("*").eq("id", segment_id).execute()
+    return result.data[0] if result.data else None
+
+
 def get_segments(transcript_id: str) -> List[dict]:
     """
     Get all segments for a transcript.
@@ -339,6 +351,32 @@ def update_speaker_label(label_id: str, **kwargs) -> Optional[dict]:
         .eq("id", label_id)\
         .execute()
     
+    return result.data[0] if result.data else None
+
+
+def update_speaker_label_by_transcript_and_speaker(
+    transcript_id: str, speaker_id: str, **kwargs
+) -> Optional[dict]:
+    """
+    Update a speaker label by transcript and speaker id (e.g. set voice_id).
+
+    Args:
+        transcript_id: UUID of the transcript
+        speaker_id: Speaker id (A, B, C, ...)
+        **kwargs: Fields to update (e.g. voice_id)
+
+    Returns:
+        dict or None: Updated speaker label record
+    """
+    client = get_client()
+    kwargs["updated_at"] = datetime.utcnow().isoformat()
+    result = (
+        client.table(SPEAKER_LABELS_TABLE)
+        .update(kwargs)
+        .eq("transcript_id", transcript_id)
+        .eq("speaker_id", speaker_id)
+        .execute()
+    )
     return result.data[0] if result.data else None
 
 

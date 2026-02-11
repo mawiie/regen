@@ -3,6 +3,7 @@ Transcript API routes - CRUD operations for transcripts, segments, and speaker l
 """
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import Response
 from typing import List, Optional
 
 from api.models.transcript import (
@@ -19,15 +20,17 @@ from api.models.transcript import (
 from database.models import (
     get_transcript,
     get_transcript_with_segments,
-    update_transcript,
-    delete_transcript,
-    list_transcripts,
+    get_segment,
     get_segments,
     update_segment,
     get_speaker_labels,
-    update_speaker_label
+    update_speaker_label,
+    update_transcript,
+    delete_transcript,
+    list_transcripts,
 )
 from services.storage import delete_audio
+from services.elevenlabs_tts import text_to_speech_mp3
 
 
 router = APIRouter()
@@ -189,11 +192,54 @@ async def edit_segment(segment_id: str, update: SegmentUpdate):
         raise HTTPException(status_code=400, detail="No update data provided")
     
     result = update_segment(segment_id, **update_data)
-    
+
     if not result:
         raise HTTPException(status_code=404, detail="Segment not found")
-    
+
     return result
+
+
+def _get_voice_id_for_segment(segment: dict) -> Optional[str]:
+    """Get ElevenLabs voice_id for the segment's speaker. Returns None if not set."""
+    labels = get_speaker_labels(segment["transcript_id"])
+    for label in labels:
+        if label.get("speaker_id") == segment.get("speaker_id"):
+            return label.get("voice_id")
+    return None
+
+
+@router.post(
+    "/segments/{segment_id}/regenerate",
+    responses={404: {"model": ErrorResponse}, 400: {"model": ErrorResponse}},
+)
+async def regenerate_segment_audio(segment_id: str):
+    """
+    Regenerate audio for a segment using ElevenLabs TTS with the speaker's voice_id.
+    Returns MP3 bytes for preview playback. Persist only locally in the client; no upload.
+    """
+    segment = get_segment(segment_id)
+    if not segment:
+        raise HTTPException(status_code=404, detail="Segment not found")
+
+    voice_id = _get_voice_id_for_segment(segment)
+    if not voice_id:
+        raise HTTPException(
+            status_code=400,
+            detail="No ElevenLabs voice for this speaker. Complete transcription processing first so voice clones are created.",
+        )
+
+    text = (segment.get("text") or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Segment has no text to speak")
+
+    try:
+        audio_bytes = text_to_speech_mp3(text=text, voice_id=voice_id)
+    except ValueError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"TTS failed: {str(e)}")
+
+    return Response(content=audio_bytes, media_type="audio/mpeg")
 
 
 @router.patch(

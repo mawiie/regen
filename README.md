@@ -122,3 +122,9 @@ The app will be available at http://localhost:5173
 - Speaker-specific voice modifications
 - "Remove filler words from Speaker X" functionality
 - "Make Speaker Y sound more excited" feature
+
+
+# Host Requirements
+
+- ffmpeg 
+- portaudio

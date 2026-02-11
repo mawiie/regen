@@ -2,9 +2,11 @@
 Upload API routes.
 """
 
-from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
-from typing import Optional
 import asyncio
+import logging
+from typing import Optional
+
+from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
 
 from api.models.transcript import (
     UploadResponse,
@@ -19,6 +21,7 @@ from services.storage import (
     cleanup_temp_file
 )
 from services.transcription import transcribe_audio
+from services.voice_clone import get_or_create_speaker_processing
 from database.models import (
     create_transcript,
     update_transcript,
@@ -70,7 +73,27 @@ async def process_transcription(
             duration=result["duration"],
             num_speakers=result["num_speakers"]
         )
-        
+
+        # Split audio by speaker and create voice clones (or reuse by content hash)
+        try:
+            outcome = get_or_create_speaker_processing(
+                transcript_id,
+                temp_file_path,
+                result["segments"],
+                result.get("speakers") or [],
+                full_text=result.get("full_text"),
+            )
+            if outcome.get("speakers"):
+                logging.getLogger(__name__).info(
+                    "Speaker processing for %s: %s", transcript_id, outcome
+                )
+        except Exception as proc_err:
+            logging.getLogger(__name__).exception(
+                "Speaker processing failed for %s (transcription succeeded): %s",
+                transcript_id,
+                proc_err,
+            )
+
     except Exception as e:
         # Update status to failed
         update_transcript(

@@ -29,6 +29,8 @@ Thumbs.db
 
 # Backend specific
 backend/venv/
+backend/speaker_audio/
+backend/audio_processing/
 
 # Frontend specific
 frontend/dist/

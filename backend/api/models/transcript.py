@@ -52,6 +52,7 @@ class Segment(SegmentBase):
     segment_index: int
     original_text: Optional[str] = None
     is_edited: bool = False
+    regenerated_audio_path: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -64,6 +65,7 @@ class SpeakerLabelBase(BaseModel):
     speaker_id: str = Field(..., description="Original speaker ID (A, B, C, etc.)")
     custom_name: Optional[str] = Field(None, description="User-defined name")
     color: str = Field(default="#3B82F6", description="Hex color for UI")
+    voice_id: Optional[str] = Field(None, description="ElevenLabs voice ID for TTS")
 
 
 class SpeakerLabelCreate(SpeakerLabelBase):

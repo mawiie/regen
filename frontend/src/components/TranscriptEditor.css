@@ -57,7 +57,26 @@
     gap: var(--space-md);
 }
 
-.editor__save-status {\n    display: inline-flex;\n    align-items: center;\n    gap: var(--space-xs);\n    font-size: var(--font-size-sm);\n    padding: var(--space-xs) var(--space-sm);\n    border-radius: var(--radius-sm);\n    animation: fadeIn var(--transition-fast);\n}\n\n.editor__save-status .animate-spin {\n    animation: spin 1s linear infinite;\n}\n\n@keyframes spin {\n    from { transform: rotate(0deg); }\n    to { transform: rotate(360deg); }\n}\n\n.editor__save-status--saving {
+.editor__save-status {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    font-size: var(--font-size-sm);
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-sm);
+    animation: fadeIn var(--transition-fast);
+}
+
+.editor__save-status .animate-spin {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.editor__save-status--saving {
     color: var(--color-text-secondary);
 }
 
@@ -179,6 +198,36 @@
     color: var(--color-text-secondary);
 }
 
+/* Persistent stats bar */
+.editor__stats-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xl);
+    padding: var(--space-sm) var(--space-lg);
+    background: var(--color-bg-secondary);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    position: sticky;
+    top: 0;
+    z-index: 90;
+}
+
+.editor__stats-item {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-sm);
+}
+
+.editor__stats-label {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.editor__stats-value {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-text-primary);
+}
+
 /* Rename Modal */
 .editor__rename-modal {
     position: fixed;
@@ -244,6 +293,11 @@
     color: var(--color-text-primary);
 }
 
+.editor__toggle--audio {
+    margin-top: var(--space-sm);
+    display: block;
+}
+
 .editor__audio-player {
     width: 100%;
     border-radius: var(--radius-md);
@@ -290,11 +344,31 @@
     border-radius: var(--radius-md);
 }
 
-/* Segments Panel (Right Column) */
+/* Transcript area: fixed-height timeline (playhead moves), transcript scrolls independently */
+.editor__transcript-area {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+    height: calc(100vh - 180px);
+}
+
+.editor__transcript-row {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+}
+
+/* Timeline column: fixed height, playhead moves within it */
+.editor__transcript-row .audio-timeline {
+    flex-shrink: 0;
+    height: 100%;
+}
+
+/* Segments panel: only this part scrolls; user scrolls freely */
 .editor__segments-panel {
     flex: 1;
+    min-width: 0;
     overflow-y: auto;
-    height: calc(100vh - 120px);
 }
 
 /* Segments Container */
@@ -336,6 +410,15 @@
         top: 0;
         border-right: none;
         border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    }
+    
+    .editor__transcript-area {
+        height: auto;
+        min-height: 50vh;
+    }
+    
+    .audio-timeline {
+        display: none;
     }
     
     .editor__segments-panel {

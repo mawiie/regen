@@ -2,8 +2,8 @@
  * Individual transcript segment component
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { Pencil, HelpCircle } from 'lucide-react';
+import { useState, useCallback, useRef, useEffect, forwardRef } from 'react';
+import { Pencil, HelpCircle, RefreshCw, Play, Loader2, RotateCcw } from 'lucide-react';
 import './TranscriptSegment.css';
 
 interface Word {
@@ -26,9 +26,18 @@ interface TranscriptSegmentProps {
     words?: Word[];
     isEdited: boolean;
     showFillerWords: boolean;
+    isActive?: boolean;
+    hasVoiceId?: boolean;
+    /** Local object URL for regenerated audio (never uploaded). */
+    regeneratedAudioUrl?: string | null;
     onTextChange: (text: string) => void;
     onSpeakerClick: () => void;
     onSeek?: (time: number) => void;
+    onRegenerate?: () => Promise<Blob>;
+    /** Called when regenerated audio is ready; store URL locally (no Accept step). */
+    onRegeneratedReady?: (blobUrl: string) => void;
+    /** Clear local regenerated override for this segment (use original). */
+    onClearRegenerated?: () => void;
 }
 
 // Simple word-level diff
@@ -91,7 +100,8 @@ function formatTimestamp(seconds: number): string {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
-export function TranscriptSegment({
+export const TranscriptSegment = forwardRef<HTMLDivElement, TranscriptSegmentProps>(function TranscriptSegment({
+    id,
     startTime,
     text,
     originalText,
@@ -101,19 +111,75 @@ export function TranscriptSegment({
     words,
     isEdited,
     showFillerWords,
+    isActive = false,
+    hasVoiceId = false,
+    regeneratedAudioUrl,
     onTextChange,
     onSpeakerClick,
     onSeek,
-}: TranscriptSegmentProps) {
+    onRegenerate,
+    onRegeneratedReady,
+    onClearRegenerated,
+}, ref) {
     const [isEditing, setIsEditing] = useState(false);
     const [editedText, setEditedText] = useState(text);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
+    const [regenState, setRegenState] = useState<'idle' | 'loading' | 'ready' | 'playing'>('idle');
+    const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
+    const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+
     // Update local state when text prop changes
     useEffect(() => {
         setEditedText(text);
     }, [text]);
+
+    // Cleanup preview blob URL on unmount or when leaving ready state
+    useEffect(() => {
+        return () => {
+            if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
+        };
+    }, [previewBlobUrl]);
+
+    const handleRegenerate = useCallback(async () => {
+        if (!onRegenerate || !text.trim()) return;
+        setRegenState('loading');
+        if (previewBlobUrl) {
+            URL.revokeObjectURL(previewBlobUrl);
+            setPreviewBlobUrl(null);
+        }
+        try {
+            const blob = await onRegenerate();
+            const url = URL.createObjectURL(blob);
+            setPreviewBlobUrl(url);
+            onRegeneratedReady?.(url);
+            setRegenState('ready');
+        } catch {
+            setRegenState('idle');
+        }
+    }, [onRegenerate, onRegeneratedReady, text, previewBlobUrl]);
+
+    const handlePlayPreview = useCallback(() => {
+        if (!previewBlobUrl || !previewAudioRef.current) return;
+        setRegenState('playing');
+        const el = previewAudioRef.current;
+        el.src = previewBlobUrl;
+        el.play().catch(() => setRegenState('ready'));
+    }, [previewBlobUrl]);
+
+    const handlePreviewEnded = useCallback(() => {
+        setRegenState('ready');
+    }, []);
+
+    const handleUseOriginal = useCallback(() => {
+        onClearRegenerated?.();
+        if (previewBlobUrl) {
+            URL.revokeObjectURL(previewBlobUrl);
+            setPreviewBlobUrl(null);
+        }
+        setRegenState('idle');
+    }, [onClearRegenerated, previewBlobUrl]);
 
     // Auto-resize textarea
     useEffect(() => {
@@ -243,7 +309,10 @@ export function TranscriptSegment({
     const hasDiff = isEdited && originalText && originalText !== text;
 
     return (
-        <div className={`segment ${isEdited ? 'segment--edited' : ''}`}>
+        <div
+            ref={ref}
+            className={`segment ${isEdited ? 'segment--edited' : ''} ${isActive ? 'segment--active' : ''}`}
+        >
             <div className="segment__header">
                 <button 
                     className="segment__timestamp"
@@ -273,7 +342,53 @@ export function TranscriptSegment({
                         <Pencil size={14} />
                     </span>
                 )}
+                {hasVoiceId && onRegenerate && text.trim() && (
+                    <button
+                        type="button"
+                        className="segment__regen-btn"
+                        onClick={handleRegenerate}
+                        disabled={regenState === 'loading'}
+                        title="Regenerate audio with ElevenLabs"
+                    >
+                        {regenState === 'loading' ? (
+                            <Loader2 size={14} className="segment__regen-spinner" />
+                        ) : (
+                            <RefreshCw size={14} />
+                        )}
+                        <span className="segment__regen-label">Regenerate</span>
+                    </button>
+                )}
             </div>
+
+            {(regenState === 'ready' || regenState === 'playing') && (
+                <div className="segment__preview-bar">
+                    <button
+                        type="button"
+                        className="segment__preview-play"
+                        onClick={handlePlayPreview}
+                        disabled={regenState === 'playing'}
+                    >
+                        <Play size={14} />
+                        {regenState === 'playing' ? 'Playing…' : 'Play'}
+                    </button>
+                </div>
+            )}
+            {regeneratedAudioUrl && onClearRegenerated && (
+                <button
+                    type="button"
+                    className="segment__use-original-btn"
+                    onClick={handleUseOriginal}
+                    title="Use original audio for this segment"
+                >
+                    <RotateCcw size={14} />
+                    <span>Use original</span>
+                </button>
+            )}
+            <audio
+                ref={previewAudioRef}
+                onEnded={handlePreviewEnded}
+                style={{ display: 'none' }}
+            />
 
             <div className="segment__content">
                 {isEditing ? (
@@ -294,4 +409,4 @@ export function TranscriptSegment({
             </div>
         </div>
     );
-}
+});

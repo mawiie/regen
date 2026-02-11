@@ -64,6 +64,7 @@ export interface Segment {
     confidence: number;
     words: Word[];
     is_edited: boolean;
+    regenerated_audio_path?: string | null;
     created_at: string;
     updated_at: string;
 }
@@ -82,6 +83,7 @@ export interface SpeakerLabel {
     speaker_id: string;
     custom_name: string | null;
     color: string;
+    voice_id?: string | null;
     created_at: string;
     updated_at: string;
 }
@@ -333,3 +335,20 @@ export function downloadExport(result: ExportResult): void {
 export function getAudioUrl(storagePath: string): string {
     return `${API_BASE_URL}/audio/${encodeURIComponent(storagePath)}`;
 }
+
+/**
+ * Regenerate segment audio with ElevenLabs TTS (speaker's voice).
+ * Returns MP3 blob for preview playback.
+ */
+export async function regenerateSegmentAudio(segmentId: string): Promise<Blob> {
+    const response = await fetch(`${API_BASE_URL}/segments/${segmentId}/regenerate`, {
+        method: 'POST',
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ detail: 'Regenerate failed' }));
+        throw new Error(err.detail || 'Regenerate failed');
+    }
+    return response.blob();
+}
+
+/* Regenerated segment audio is persisted only locally; no accept/upload endpoint. */

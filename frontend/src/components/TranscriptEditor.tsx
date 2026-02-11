@@ -18,8 +18,9 @@ import {
 } from 'lucide-react';
 import { useTranscription } from '../hooks/useTranscription';
 import { TranscriptSegment } from './TranscriptSegment';
+import { AudioTimelineColumn } from './AudioTimelineColumn';
 import { LoadingSpinner } from './LoadingSpinner';
-import { exportTranscript, downloadExport, getAudioUrl } from '../services/api';
+import { exportTranscript, downloadExport, getAudioUrl, regenerateSegmentAudio } from '../services/api';
 import './TranscriptEditor.css';
 
 interface TranscriptEditorProps {
@@ -49,6 +50,8 @@ export function TranscriptEditor({ transcriptId, onBack }: TranscriptEditorProps
         redo,
         getSpeakerColor,
         getSpeakerName,
+        localRegeneratedUrl,
+        setLocalRegeneratedUrl,
     } = useTranscription();
 
     const [showFillerWords, setShowFillerWords] = useState(true);
@@ -58,8 +61,14 @@ export function TranscriptEditor({ transcriptId, onBack }: TranscriptEditorProps
     const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error' | null>(null);
     const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
     const [audioUrl, setAudioUrl] = useState<string | null>(null);
+    const [currentTime, setCurrentTime] = useState(0);
+    const [useRegenerated, setUseRegenerated] = useState(true);
 
     const audioRef = useRef<HTMLAudioElement>(null);
+    const overrideAudioRef = useRef<HTMLAudioElement>(null);
+    const playingOverrideRef = useRef(false);
+    const overrideSegmentRef = useRef<{ id: string; start_time: number; end_time: number } | null>(null);
+    const segmentRefsMap = useRef<Map<string, HTMLDivElement>>(new Map());
 
     const renameInputRef = useRef<HTMLInputElement>(null);
     const exportDropdownRef = useRef<HTMLDivElement>(null);
@@ -77,13 +86,130 @@ export function TranscriptEditor({ transcriptId, onBack }: TranscriptEditorProps
         }
     }, [transcript?.storage_path]);
 
-    // Handle seeking to a specific time
-    const handleSeek = useCallback((time: number) => {
-        if (audioRef.current) {
-            audioRef.current.currentTime = time;
-            audioRef.current.play();
+    // Sync currentTime from main audio or override; switch to regenerated clip when in segment with override
+    useEffect(() => {
+        const main = audioRef.current;
+        const override = overrideAudioRef.current;
+        if (!main || !transcript?.segments) return;
+
+        const onMainTimeUpdate = () => {
+            if (playingOverrideRef.current) return;
+            const t = main.currentTime;
+            if (!useRegenerated) {
+                setCurrentTime(t);
+                return;
+            }
+            const segment = transcript.segments.find((s) => s.start_time <= t && t < s.end_time);
+            const url = segment ? localRegeneratedUrl(segment.id) : undefined;
+            if (segment && url) {
+                main.pause();
+                playingOverrideRef.current = true;
+                overrideSegmentRef.current = {
+                    id: segment.id,
+                    start_time: segment.start_time,
+                    end_time: segment.end_time,
+                };
+                if (override) {
+                    override.src = url;
+                    override.currentTime = 0;
+                    override.play().catch(() => {
+                        playingOverrideRef.current = false;
+                        overrideSegmentRef.current = null;
+                        main.play();
+                    });
+                } else {
+                    playingOverrideRef.current = false;
+                    overrideSegmentRef.current = null;
+                    main.play();
+                }
+            } else {
+                setCurrentTime(t);
+            }
+        };
+
+        const onOverrideTimeUpdate = () => {
+            const seg = overrideSegmentRef.current;
+            if (seg && override) setCurrentTime(seg.start_time + override.currentTime);
+        };
+
+        const onOverrideEnded = () => {
+            const seg = overrideSegmentRef.current;
+            playingOverrideRef.current = false;
+            overrideSegmentRef.current = null;
+            if (seg && main) {
+                main.currentTime = seg.end_time;
+                setCurrentTime(seg.end_time);
+                main.play();
+            }
+        };
+
+        const onMainLoadedMetadata = () => setCurrentTime(main.currentTime);
+        main.addEventListener('timeupdate', onMainTimeUpdate);
+        main.addEventListener('loadedmetadata', onMainLoadedMetadata);
+        if (override) {
+            override.addEventListener('timeupdate', onOverrideTimeUpdate);
+            override.addEventListener('ended', onOverrideEnded);
         }
-    }, []);
+        return () => {
+            main.removeEventListener('timeupdate', onMainTimeUpdate);
+            main.removeEventListener('loadedmetadata', onMainLoadedMetadata);
+            if (override) {
+                override.removeEventListener('timeupdate', onOverrideTimeUpdate);
+                override.removeEventListener('ended', onOverrideEnded);
+            }
+        };
+    }, [audioUrl, useRegenerated, transcript?.segments, localRegeneratedUrl]);
+
+    // When turning off "use regenerated", stop override and resume main from current position
+    useEffect(() => {
+        if (useRegenerated) return;
+        if (!playingOverrideRef.current || !overrideAudioRef.current || !audioRef.current) return;
+        const seg = overrideSegmentRef.current;
+        const override = overrideAudioRef.current;
+        const main = audioRef.current;
+        const pos = override.currentTime;
+        override.pause();
+        override.currentTime = 0;
+        playingOverrideRef.current = false;
+        if (seg) {
+            main.currentTime = seg.start_time + pos;
+            setCurrentTime(main.currentTime);
+        }
+        overrideSegmentRef.current = null;
+        main.play();
+    }, [useRegenerated]);
+
+    // Which segment contains current playback time (for highlighting; no auto-scroll)
+    const activeSegmentId =
+        transcript?.segments.find(
+            (s) => s.start_time <= currentTime && currentTime < s.end_time
+        )?.id ?? null;
+
+    // Handle seeking to a specific time (e.g. from timeline click); scroll transcript to that segment
+    const handleSeek = useCallback(
+        (time: number) => {
+            if (overrideAudioRef.current && playingOverrideRef.current) {
+                overrideAudioRef.current.pause();
+                overrideAudioRef.current.currentTime = 0;
+                playingOverrideRef.current = false;
+                overrideSegmentRef.current = null;
+            }
+            if (audioRef.current) {
+                audioRef.current.currentTime = time;
+                audioRef.current.play();
+            }
+            const segment = transcript?.segments.find(
+                (s) => s.start_time <= time && time < s.end_time
+            );
+            if (segment) {
+                segmentRefsMap.current.get(segment.id)?.scrollIntoView({
+                    block: 'nearest',
+                    behavior: 'smooth',
+                });
+            }
+        },
+        [transcript?.segments]
+    );
 
     // Handle keyboard shortcuts
     useEffect(() => {
@@ -311,6 +437,22 @@ export function TranscriptEditor({ transcriptId, onBack }: TranscriptEditorProps
                 </label>
             </div>
 
+            {/* Persistent stats bar - Duration, Segments, Speakers */}
+            <div className="editor__stats-bar">
+                <div className="editor__stats-item">
+                    <span className="editor__stats-label">Duration</span>
+                    <span className="editor__stats-value">{formatDuration(transcript.duration)}</span>
+                </div>
+                <div className="editor__stats-item">
+                    <span className="editor__stats-label">Segments</span>
+                    <span className="editor__stats-value">{transcript.segments.length}</span>
+                </div>
+                <div className="editor__stats-item">
+                    <span className="editor__stats-label">Speakers</span>
+                    <span className="editor__stats-value">{transcript.num_speakers}</span>
+                </div>
+            </div>
+
             {/* Speaker Rename Modal */}
             {renamingLabel && (
                 <div className="editor__rename-modal" onClick={() => setRenamingLabel(null)}>
@@ -347,12 +489,23 @@ export function TranscriptEditor({ transcriptId, onBack }: TranscriptEditorProps
                     </div>
                     
                     {audioUrl ? (
-                        <audio
-                            ref={audioRef}
-                            className="editor__audio-player"
-                            src={audioUrl}
-                            controls
-                        />
+                        <>
+                            <audio
+                                ref={audioRef}
+                                className="editor__audio-player"
+                                src={audioUrl}
+                                controls
+                            />
+                            <audio ref={overrideAudioRef} style={{ display: 'none' }} />
+                            <label className="editor__toggle editor__toggle--audio">
+                                <input
+                                    type="checkbox"
+                                    checked={useRegenerated}
+                                    onChange={(e) => setUseRegenerated(e.target.checked)}
+                                />
+                                <span className="editor__toggle-label">Use regenerated audio where available</span>
+                            </label>
+                        </>
                     ) : (
                         <div className="editor__audio-placeholder">
                             Audio not available
@@ -379,32 +532,58 @@ export function TranscriptEditor({ transcriptId, onBack }: TranscriptEditorProps
                     </p>
                 </aside>
 
-                {/* Right Column - Transcript Segments */}
-                <div className="editor__segments-panel">
-                    <div className="editor__segments">
-                        {filteredSegments?.map((segment) => {
-                            const label = transcript.speaker_labels.find(l => l.speaker_id === segment.speaker_id);
+                {/* Transcript area: timeline column + segments (same scroll container) */}
+                <div className="editor__transcript-area">
+                    <div className="editor__transcript-row">
+                        <AudioTimelineColumn
+                            duration={transcript.duration ?? 0}
+                            segments={transcript.segments.map((s) => ({
+                                id: s.id,
+                                start_time: s.start_time,
+                                end_time: s.end_time,
+                                speaker_id: s.speaker_id,
+                            }))}
+                            getSpeakerColor={getSpeakerColor}
+                            currentTime={currentTime}
+                            onSeek={handleSeek}
+                        />
+                        <div className="editor__segments-panel">
+                            <div className="editor__segments">
+                                {filteredSegments?.map((segment) => {
+                                    const label = transcript.speaker_labels.find(l => l.speaker_id === segment.speaker_id);
 
-                            return (
-                                <TranscriptSegment
-                                    key={segment.id}
-                                    id={segment.id}
-                                    startTime={segment.start_time}
-                                    endTime={segment.end_time}
-                                    text={segment.text}
-                                    originalText={segment.original_text}
-                                    speakerId={segment.speaker_id}
-                                    speakerName={getSpeakerName(segment.speaker_id)}
-                                    speakerColor={getSpeakerColor(segment.speaker_id)}
-                                    words={segment.words}
-                                    isEdited={segment.is_edited}
-                                    showFillerWords={showFillerWords}
-                                    onTextChange={(text) => handleSegmentTextChange(segment.id, text)}
-                                    onSpeakerClick={() => label && handleSpeakerClick(label.id, getSpeakerName(segment.speaker_id))}
-                                    onSeek={handleSeek}
-                                />
-                            );
-                        })}
+                                    return (
+                                        <TranscriptSegment
+                                            key={segment.id}
+                                            ref={(el) => {
+                                                if (el) segmentRefsMap.current.set(segment.id, el);
+                                                else segmentRefsMap.current.delete(segment.id);
+                                            }}
+                                            id={segment.id}
+                                            startTime={segment.start_time}
+                                            endTime={segment.end_time}
+                                            text={segment.text}
+                                            originalText={segment.original_text}
+                                            speakerId={segment.speaker_id}
+                                            speakerName={getSpeakerName(segment.speaker_id)}
+                                            speakerColor={getSpeakerColor(segment.speaker_id)}
+                                            words={segment.words}
+                                            isEdited={segment.is_edited}
+                                            showFillerWords={showFillerWords}
+                                            isActive={segment.id === activeSegmentId}
+                                            hasVoiceId={!!label?.voice_id}
+                                            regeneratedAudioUrl={localRegeneratedUrl(segment.id)}
+                                            onTextChange={(text) => handleSegmentTextChange(segment.id, text)}
+                                            onSpeakerClick={() => label && handleSpeakerClick(label.id, getSpeakerName(segment.speaker_id))}
+                                            onSeek={handleSeek}
+                                            onRegenerate={() => regenerateSegmentAudio(segment.id)}
+                                            onRegeneratedReady={(url) => setLocalRegeneratedUrl(segment.id, url)}
+                                            onClearRegenerated={() => setLocalRegeneratedUrl(segment.id, null)}
+                                        />
+                                    );
+                                })}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

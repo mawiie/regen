@@ -32,6 +32,9 @@ interface UseTranscriptionResult {
     redo: () => void;
     getSpeakerColor: (speakerId: string) => string;
     getSpeakerName: (speakerId: string) => string;
+    /** Local-only: object URL for regenerated segment audio (never uploaded). */
+    localRegeneratedUrl: (segmentId: string) => string | undefined;
+    setLocalRegeneratedUrl: (segmentId: string, url: string | null) => void;
 }
 
 const MAX_HISTORY = 50;
@@ -46,6 +49,9 @@ export function useTranscription(): UseTranscriptionResult {
     const [editHistory, setEditHistory] = useState<EditHistoryItem[]>([]);
     const [historyIndex, setHistoryIndex] = useState(-1);
     const isUndoRedo = useRef(false);
+
+    // Local-only regenerated audio (object URLs); never uploaded
+    const [localRegeneratedUrls, setLocalRegeneratedUrlsState] = useState<Record<string, string>>({});
 
     // Build speaker names map from transcript
     useEffect(() => {
@@ -66,6 +72,11 @@ export function useTranscription(): UseTranscriptionResult {
             setTranscript(result);
             setEditHistory([]);
             setHistoryIndex(-1);
+            // Clear local regenerated URLs when switching transcript (revoke old URLs)
+            setLocalRegeneratedUrlsState((prev) => {
+                Object.values(prev).forEach((url) => URL.revokeObjectURL(url));
+                return {};
+            });
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to load transcript');
         } finally {
@@ -219,6 +230,21 @@ export function useTranscription(): UseTranscriptionResult {
         return speakerNames[speakerId] || `Speaker ${speakerId}`;
     }, [speakerNames]);
 
+    const localRegeneratedUrl = useCallback((segmentId: string) => localRegeneratedUrls[segmentId], [localRegeneratedUrls]);
+
+    const setLocalRegeneratedUrl = useCallback((segmentId: string, url: string | null) => {
+        setLocalRegeneratedUrlsState((prev) => {
+            const old = prev[segmentId];
+            if (old) URL.revokeObjectURL(old);
+            if (!url) {
+                const next = { ...prev };
+                delete next[segmentId];
+                return next;
+            }
+            return { ...prev, [segmentId]: url };
+        });
+    }, []);
+
     const canUndo = historyIndex >= 0;
     const canRedo = historyIndex < editHistory.length - 1;
 
@@ -237,5 +263,7 @@ export function useTranscription(): UseTranscriptionResult {
         redo,
         getSpeakerColor,
         getSpeakerName,
+        localRegeneratedUrl,
+        setLocalRegeneratedUrl,
     };
 }

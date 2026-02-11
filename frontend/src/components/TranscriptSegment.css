@@ -24,7 +24,7 @@
 .segment--active {
     border-left: 3px solid var(--color-accent-primary);
     padding-left: calc(var(--space-md) - 3px);
-    background: rgba(99, 102, 241, 0.06);
+    background: rgba(37, 99, 235, 0.06);
 }
 
 .segment__header {

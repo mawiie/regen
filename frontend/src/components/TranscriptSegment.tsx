@@ -312,6 +312,7 @@ export const TranscriptSegment = forwardRef<HTMLDivElement, TranscriptSegmentPro
         <div
             ref={ref}
             className={`segment ${isEdited ? 'segment--edited' : ''} ${isActive ? 'segment--active' : ''}`}
+            data-segment-id={id}
         >
             <div className="segment__header">
                 <button 

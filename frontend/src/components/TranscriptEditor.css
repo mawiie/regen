@@ -1,7 +1,17 @@
+/* Editor blue theme overrides (no purple) */
+.editor {
+    --editor-accent: #2563eb;
+    --editor-accent-soft: rgba(37, 99, 235, 0.12);
+    --editor-accent-border: #3b82f6;
+}
+
 .editor {
     display: flex;
     flex-direction: column;
+    height: 100vh;
     min-height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
     background: var(--color-bg-primary);
 }
 
@@ -16,7 +26,7 @@
     text-align: center;
 }
 
-/* Header */
+/* Header - in flow, does not scroll */
 .editor__header {
     display: flex;
     align-items: center;
@@ -25,8 +35,7 @@
     padding: var(--space-md) var(--space-lg);
     background: var(--color-bg-secondary);
     border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-    position: sticky;
-    top: 0;
+    flex-shrink: 0;
     z-index: 100;
 }
 
@@ -135,7 +144,7 @@
     background: var(--color-bg-tertiary);
 }
 
-/* Toolbar */
+/* Toolbar - in flow, does not scroll */
 .editor__toolbar {
     display: flex;
     align-items: center;
@@ -144,6 +153,7 @@
     padding: var(--space-md) var(--space-lg);
     background: var(--color-bg-secondary);
     border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    flex-shrink: 0;
 }
 
 .editor__speaker-filters {
@@ -154,8 +164,15 @@
 }
 
 .editor__toolbar-label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
     font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
+}
+
+.editor__toolbar-label svg {
+    color: var(--editor-accent);
 }
 
 .editor__speaker-chip {
@@ -175,9 +192,9 @@
 }
 
 .editor__speaker-chip.active {
-    color: var(--color-accent-primary);
-    background: rgba(99, 102, 241, 0.1);
-    border-color: var(--color-accent-primary);
+    color: var(--editor-accent);
+    background: var(--editor-accent-soft);
+    border-color: var(--editor-accent-border);
 }
 
 .editor__toggle {
@@ -190,7 +207,7 @@
 .editor__toggle input {
     width: 18px;
     height: 18px;
-    accent-color: var(--color-accent-primary);
+    accent-color: var(--editor-accent);
 }
 
 .editor__toggle-label {
@@ -198,7 +215,7 @@
     color: var(--color-text-secondary);
 }
 
-/* Persistent stats bar */
+/* Stats bar - in flow, does not scroll */
 .editor__stats-bar {
     display: flex;
     align-items: center;
@@ -206,15 +223,19 @@
     padding: var(--space-sm) var(--space-lg);
     background: var(--color-bg-secondary);
     border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-    position: sticky;
-    top: 0;
+    flex-shrink: 0;
     z-index: 90;
 }
 
 .editor__stats-item {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: var(--space-sm);
+}
+
+.editor__stats-icon {
+    color: var(--editor-accent);
+    flex-shrink: 0;
 }
 
 .editor__stats-label {
@@ -261,114 +282,190 @@
     gap: var(--space-sm);
 }
 
-/* Main Content - Two Column Layout */
+/* Main Content - single column with player strip at top */
 .editor__content {
     display: flex;
+    flex-direction: column;
     flex: 1;
+    min-height: 0;
     overflow: hidden;
 }
 
-/* Audio Panel (Left Column) */
-.editor__audio-panel {
-    width: 350px;
-    min-width: 300px;
-    padding: var(--space-lg);
-    background: var(--color-bg-secondary);
-    border-right: 1px solid rgba(0, 0, 0, 0.08);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-lg);
-    position: sticky;
-    top: 60px;
-    height: calc(100vh - 120px);
-    overflow-y: auto;
+/* Mini player + seeker strip - in flow above transcript, only transcript scrolls */
+.editor__player-strip {
+    flex-shrink: 0;
+    padding: var(--space-md) var(--space-lg);
+    background: linear-gradient(180deg, #eff6ff 0%, var(--color-bg-secondary) 100%);
+    border-bottom: 1px solid rgba(37, 99, 235, 0.12);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
-.editor__audio-title {
+.editor__mini-player {
     display: flex;
     align-items: center;
-    gap: var(--space-sm);
-    font-size: var(--font-size-sm);
-    font-weight: 600;
-    color: var(--color-text-primary);
+    gap: var(--space-lg);
+    flex-wrap: wrap;
+    margin-bottom: var(--space-md);
 }
 
-.editor__toggle--audio {
-    margin-top: var(--space-sm);
-    display: block;
-}
-
-.editor__audio-player {
-    width: 100%;
-    border-radius: var(--radius-md);
-}
-
-.editor__audio-info {
+.editor__play-btn {
     display: flex;
-    flex-direction: column;
-    gap: var(--space-sm);
-    padding: var(--space-md);
-    background: var(--color-bg-tertiary);
-    border-radius: var(--radius-md);
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--editor-accent);
+    color: white;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-.editor__audio-info-row {
-    display: flex;
-    justify-content: space-between;
+.editor__play-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+}
+
+.editor__play-btn:active {
+    transform: scale(0.98);
+}
+
+.editor__time-display {
+    font-variant-numeric: tabular-nums;
     font-size: var(--font-size-sm);
-}
-
-.editor__audio-info-label {
-    color: var(--color-text-secondary);
-}
-
-.editor__audio-info-value {
     color: var(--color-text-primary);
     font-weight: 500;
 }
 
-.editor__audio-hint {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-muted);
-    text-align: center;
-    padding: var(--space-sm);
-    background: var(--color-bg-tertiary);
-    border-radius: var(--radius-sm);
+.editor__time-current {
+    color: var(--editor-accent);
 }
 
-.editor__audio-placeholder {
-    padding: var(--space-lg);
-    text-align: center;
+.editor__time-sep {
+    color: var(--color-text-muted);
+    margin: 0 var(--space-xs);
+}
+
+.editor__time-total {
+    color: var(--color-text-secondary);
+}
+
+.editor__mini-stats {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    margin-left: auto;
+}
+
+.editor__mini-stat {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.editor__mini-stat svg {
+    color: var(--editor-accent);
+    flex-shrink: 0;
+}
+
+.editor__mini-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-sm);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+}
+
+.editor__mini-toggle input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--editor-accent);
+}
+
+/* Horizontal seeker - center justified, slim */
+.editor__seeker {
+    position: relative;
+    max-width: 720px;
+    margin: 0 auto;
+    height: 28px;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background: var(--color-bg-tertiary);
+    cursor: pointer;
+    touch-action: none;
+    transition: box-shadow var(--transition-fast);
+}
+
+.editor__seeker:hover {
+    box-shadow: 0 0 0 2px var(--editor-accent-soft);
+}
+
+.editor__seeker-segments {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: row;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.editor__seeker-segment {
+    flex-shrink: 0;
+    min-width: 2px;
+    transition: opacity var(--transition-fast);
+}
+
+.editor__seeker:hover .editor__seeker-segment {
+    opacity: 0.9;
+}
+
+.editor__seeker-playhead {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    margin-left: -1.5px;
+    background: var(--editor-accent);
+    pointer-events: none;
+    z-index: 2;
+    border-radius: 2px;
+    box-shadow: 0 0 6px rgba(37, 99, 235, 0.5);
+}
+
+.editor__player-unavailable {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
+    padding: var(--space-md);
+    font-size: var(--font-size-sm);
     color: var(--color-text-muted);
     background: var(--color-bg-tertiary);
     border-radius: var(--radius-md);
 }
 
-/* Transcript area: fixed-height timeline (playhead moves), transcript scrolls independently */
+.editor__player-unavailable svg {
+    color: var(--editor-accent);
+}
+
+/* Transcript area - only this section scrolls; header, toolbar, stats, player stay fixed */
 .editor__transcript-area {
     flex: 1;
-    display: flex;
     min-height: 0;
-    height: calc(100vh - 180px);
-}
-
-.editor__transcript-row {
+    overflow-y: auto;
     display: flex;
-    flex: 1;
-    min-width: 0;
+    flex-direction: column;
 }
 
-/* Timeline column: fixed height, playhead moves within it */
-.editor__transcript-row .audio-timeline {
-    flex-shrink: 0;
-    height: 100%;
-}
-
-/* Segments panel: only this part scrolls; user scrolls freely */
 .editor__segments-panel {
     flex: 1;
     min-width: 0;
-    overflow-y: auto;
+    min-height: 0;
 }
 
 /* Segments Container */
@@ -384,47 +481,39 @@
     margin-top: var(--space-md);
 }
 
-/* Keyboard Shortcuts */
+/* Keyboard Shortcuts footer */
 .editor__shortcuts {
     display: flex;
+    align-items: center;
     justify-content: center;
     gap: var(--space-lg);
-    padding: var(--space-md);
+    padding: var(--space-sm) var(--space-md);
     font-size: var(--font-size-xs);
     color: var(--color-text-muted);
     background: var(--color-bg-secondary);
     border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
+.editor__shortcuts svg {
+    color: var(--editor-accent);
+    flex-shrink: 0;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
-    .editor__content {
-        flex-direction: column;
+    .editor__mini-player {
+        gap: var(--space-md);
     }
-    
-    .editor__audio-panel {
+
+    .editor__mini-stats {
+        margin-left: 0;
         width: 100%;
-        min-width: unset;
-        height: auto;
-        position: relative;
-        top: 0;
-        border-right: none;
-        border-bottom: 1px solid rgba(0, 0, 0, 0.08);
     }
-    
-    .editor__transcript-area {
-        height: auto;
-        min-height: 50vh;
+
+    .editor__seeker {
+        max-width: 100%;
     }
-    
-    .audio-timeline {
-        display: none;
-    }
-    
-    .editor__segments-panel {
-        height: auto;
-    }
-    
+
     .editor__header {
         flex-direction: column;
         align-items: stretch;

@@ -14,11 +14,16 @@ import {
     Loader2,
     Check,
     X,
-    Music
+    Play,
+    Pause,
+    Clock,
+    Users,
+    Hash,
+    Sparkles,
+    Keyboard
 } from 'lucide-react';
 import { useTranscription } from '../hooks/useTranscription';
 import { TranscriptSegment } from './TranscriptSegment';
-import { AudioTimelineColumn } from './AudioTimelineColumn';
 import { LoadingSpinner } from './LoadingSpinner';
 import { exportTranscript, downloadExport, getAudioUrl, regenerateSegmentAudio } from '../services/api';
 import './TranscriptEditor.css';
@@ -63,6 +68,7 @@ export function TranscriptEditor({ transcriptId, onBack }: TranscriptEditorProps
     const [audioUrl, setAudioUrl] = useState<string | null>(null);
     const [currentTime, setCurrentTime] = useState(0);
     const [useRegenerated, setUseRegenerated] = useState(true);
+    const [isPlaying, setIsPlaying] = useState(false);
 
     const audioRef = useRef<HTMLAudioElement>(null);
     const overrideAudioRef = useRef<HTMLAudioElement>(null);
@@ -72,6 +78,8 @@ export function TranscriptEditor({ transcriptId, onBack }: TranscriptEditorProps
 
     const renameInputRef = useRef<HTMLInputElement>(null);
     const exportDropdownRef = useRef<HTMLDivElement>(null);
+    const seekBarRef = useRef<HTMLDivElement>(null);
+    const seekDraggingRef = useRef(false);
 
     // Load transcript on mount
     useEffect(() => {
@@ -164,6 +172,20 @@ export function TranscriptEditor({ transcriptId, onBack }: TranscriptEditorProps
         };
     }, [audioUrl, useRegenerated, transcript?.segments, localRegeneratedUrl]);
 
+    // Sync isPlaying from main audio
+    useEffect(() => {
+        const main = audioRef.current;
+        if (!main) return;
+        const onPlay = () => setIsPlaying(true);
+        const onPause = () => setIsPlaying(false);
+        main.addEventListener('play', onPlay);
+        main.addEventListener('pause', onPause);
+        return () => {
+            main.removeEventListener('play', onPlay);
+            main.removeEventListener('pause', onPause);
+        };
+    }, []);
+
     // When turning off "use regenerated", stop override and resume main from current position
     useEffect(() => {
         if (useRegenerated) return;
@@ -189,7 +211,14 @@ export function TranscriptEditor({ transcriptId, onBack }: TranscriptEditorProps
             (s) => s.start_time <= currentTime && currentTime < s.end_time
         )?.id ?? null;
 
-    // Handle seeking to a specific time (e.g. from timeline click); scroll transcript to that segment
+    const togglePlayPause = useCallback(() => {
+        const main = audioRef.current;
+        if (!main) return;
+        if (main.paused) main.play().catch(() => {});
+        else main.pause();
+    }, []);
+
+    // Handle seeking to a specific time; scroll transcript to that segment
     const handleSeek = useCallback(
         (time: number) => {
             if (overrideAudioRef.current && playingOverrideRef.current) {
@@ -214,6 +243,42 @@ export function TranscriptEditor({ transcriptId, onBack }: TranscriptEditorProps
         },
         [transcript?.segments]
     );
+
+    const getTimeFromSeekBarX = useCallback(
+        (clientX: number): number => {
+            const bar = seekBarRef.current;
+            if (!bar || !transcript?.duration) return 0;
+            const rect = bar.getBoundingClientRect();
+            const x = clientX - rect.left;
+            const fraction = Math.max(0, Math.min(1, rect.width > 0 ? x / rect.width : 0));
+            return fraction * transcript.duration;
+        },
+        [transcript?.duration]
+    );
+
+    const handleSeekBarPointerDown = useCallback(
+        (e: React.PointerEvent) => {
+            e.preventDefault();
+            seekDraggingRef.current = true;
+            handleSeek(getTimeFromSeekBarX(e.clientX));
+            (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+        },
+        [getTimeFromSeekBarX, handleSeek]
+    );
+
+    const handleSeekBarPointerMove = useCallback(
+        (e: React.PointerEvent) => {
+            if (!seekDraggingRef.current) return;
+            e.preventDefault();
+            handleSeek(getTimeFromSeekBarX(e.clientX));
+        },
+        [getTimeFromSeekBarX, handleSeek]
+    );
+
+    const handleSeekBarPointerUp = useCallback((e: React.PointerEvent) => {
+        seekDraggingRef.current = false;
+        try { (e.target as HTMLElement).releasePointerCapture?.(e.pointerId); } catch (_) {}
+    }, []);
 
     // Handle keyboard shortcuts
     useEffect(() => {
@@ -406,9 +471,11 @@ export function TranscriptEditor({ transcriptId, onBack }: TranscriptEditorProps
 
             {/* Toolbar */}
             <div className="editor__toolbar">
-                {/* Speaker Filter */}
                 <div className="editor__speaker-filters">
-                    <span className="editor__toolbar-label">Speakers:</span>
+                    <span className="editor__toolbar-label">
+                        <Users size={16} />
+                        Speakers
+                    </span>
                     <button
                         className={`editor__speaker-chip ${filterSpeaker === null ? 'active' : ''}`}
                         onClick={() => setFilterSpeaker(null)}
@@ -430,7 +497,6 @@ export function TranscriptEditor({ transcriptId, onBack }: TranscriptEditorProps
                     ))}
                 </div>
 
-                {/* Toggle Filler Words */}
                 <label className="editor__toggle">
                     <input
                         type="checkbox"
@@ -441,17 +507,20 @@ export function TranscriptEditor({ transcriptId, onBack }: TranscriptEditorProps
                 </label>
             </div>
 
-            {/* Persistent stats bar - Duration, Segments, Speakers */}
+            {/* Stats bar with icons */}
             <div className="editor__stats-bar">
                 <div className="editor__stats-item">
+                    <Clock size={16} className="editor__stats-icon" />
                     <span className="editor__stats-label">Duration</span>
                     <span className="editor__stats-value">{formatDuration(transcript.duration)}</span>
                 </div>
                 <div className="editor__stats-item">
+                    <Hash size={16} className="editor__stats-icon" />
                     <span className="editor__stats-label">Segments</span>
                     <span className="editor__stats-value">{transcript.segments.length}</span>
                 </div>
                 <div className="editor__stats-item">
+                    <Users size={16} className="editor__stats-icon" />
                     <span className="editor__stats-label">Speakers</span>
                     <span className="editor__stats-value">{transcript.num_speakers}</span>
                 </div>
@@ -483,120 +552,153 @@ export function TranscriptEditor({ transcriptId, onBack }: TranscriptEditorProps
                 </div>
             )}
 
-            {/* Two-Column Layout */}
+            {/* Hidden audio elements (controlled by mini player) */}
+            {audioUrl && (
+                <>
+                    <audio ref={audioRef} src={audioUrl} style={{ display: 'none' }} />
+                    <audio ref={overrideAudioRef} style={{ display: 'none' }} />
+                </>
+            )}
+
+            {/* Content: player fixed at top, only transcript scrolls */}
             <div className="editor__content">
-                {/* Left Column - Audio Player */}
-                <aside className="editor__audio-panel">
-                    <div className="editor__audio-title">
-                        <Music size={18} />
-                        Audio File
-                    </div>
-                    
+                {/* Mini player + seeker - outside scroll container so it never scrolls */}
+                <div className="editor__player-strip">
                     {audioUrl ? (
                         <>
-                            <audio
-                                ref={audioRef}
-                                className="editor__audio-player"
-                                src={audioUrl}
-                                controls
-                            />
-                            <audio ref={overrideAudioRef} style={{ display: 'none' }} />
-                            <label className="editor__toggle editor__toggle--audio">
-                                <input
-                                    type="checkbox"
-                                    checked={useRegenerated}
-                                    onChange={(e) => setUseRegenerated(e.target.checked)}
+                            <div className="editor__mini-player">
+                                <button
+                                    type="button"
+                                    className="editor__play-btn"
+                                    onClick={togglePlayPause}
+                                    title={isPlaying ? 'Pause' : 'Play'}
+                                    aria-label={isPlaying ? 'Pause' : 'Play'}
+                                >
+                                    {isPlaying ? <Pause size={22} /> : <Play size={22} />}
+                                </button>
+                                <div className="editor__time-display">
+                                    <span className="editor__time-current">{formatDuration(currentTime)}</span>
+                                    <span className="editor__time-sep">/</span>
+                                    <span className="editor__time-total">{formatDuration(transcript.duration)}</span>
+                                </div>
+                                <div className="editor__mini-stats">
+                                    <span className="editor__mini-stat" title="Duration">
+                                        <Clock size={14} />
+                                        {formatDuration(transcript.duration)}
+                                    </span>
+                                    <span className="editor__mini-stat" title="Speakers">
+                                        <Users size={14} />
+                                        {transcript.num_speakers}
+                                    </span>
+                                    <span className="editor__mini-stat" title="Segments">
+                                        <Hash size={14} />
+                                        {transcript.segments.length}
+                                    </span>
+                                </div>
+                                <label className="editor__mini-toggle" title="Use regenerated audio where available">
+                                    <input
+                                        type="checkbox"
+                                        checked={useRegenerated}
+                                        onChange={(e) => setUseRegenerated(e.target.checked)}
+                                    />
+                                    <Sparkles size={16} />
+                                    <span>Regenerated</span>
+                                </label>
+                            </div>
+                            <div
+                                ref={seekBarRef}
+                                className="editor__seeker"
+                                role="slider"
+                                aria-label="Seek"
+                                aria-valuenow={currentTime}
+                                aria-valuemin={0}
+                                aria-valuemax={transcript.duration ?? 0}
+                                onPointerDown={handleSeekBarPointerDown}
+                                onPointerMove={handleSeekBarPointerMove}
+                                onPointerUp={handleSeekBarPointerUp}
+                                onPointerLeave={handleSeekBarPointerUp}
+                            >
+                                <div className="editor__seeker-segments">
+                                    {transcript.segments.map((seg) => {
+                                        const dur = transcript.duration ?? 1;
+                                        const pct = ((seg.end_time - seg.start_time) / dur) * 100;
+                                        const color = getSpeakerColor(seg.speaker_id);
+                                        return (
+                                            <div
+                                                key={seg.id}
+                                                className="editor__seeker-segment"
+                                                style={{
+                                                    width: `${pct}%`,
+                                                    backgroundColor: `${color}40`,
+                                                    borderBottom: `2px solid ${color}`,
+                                                }}
+                                            />
+                                        );
+                                    })}
+                                </div>
+                                <div
+                                    className="editor__seeker-playhead"
+                                    style={{ left: `${transcript.duration ? (currentTime / transcript.duration) * 100 : 0}%` }}
+                                    aria-hidden
                                 />
-                                <span className="editor__toggle-label">Use regenerated audio where available</span>
-                            </label>
+                            </div>
                         </>
                     ) : (
-                        <div className="editor__audio-placeholder">
-                            Audio not available
+                        <div className="editor__player-unavailable">
+                            <Clock size={18} />
+                            <span>Audio not available</span>
                         </div>
                     )}
-                    
-                    <div className="editor__audio-info">
-                        <div className="editor__audio-info-row">
-                            <span className="editor__audio-info-label">Duration</span>
-                            <span className="editor__audio-info-value">{formatDuration(transcript.duration)}</span>
-                        </div>
-                        <div className="editor__audio-info-row">
-                            <span className="editor__audio-info-label">Speakers</span>
-                            <span className="editor__audio-info-value">{transcript.num_speakers}</span>
-                        </div>
-                        <div className="editor__audio-info-row">
-                            <span className="editor__audio-info-label">Segments</span>
-                            <span className="editor__audio-info-value">{transcript.segments.length}</span>
-                        </div>
-                    </div>
-                    
-                    <p className="editor__audio-hint">
-                        Click on any timestamp to seek to that position in the audio.
-                    </p>
-                </aside>
+                </div>
 
-                {/* Transcript area: timeline column + segments (same scroll container) */}
+                {/* Only this area scrolls; player above stays fixed */}
                 <div className="editor__transcript-area">
-                    <div className="editor__transcript-row">
-                        <AudioTimelineColumn
-                            duration={transcript.duration ?? 0}
-                            segments={transcript.segments.map((s) => ({
-                                id: s.id,
-                                start_time: s.start_time,
-                                end_time: s.end_time,
-                                speaker_id: s.speaker_id,
-                            }))}
-                            getSpeakerColor={getSpeakerColor}
-                            currentTime={currentTime}
-                            onSeek={handleSeek}
-                        />
-                        <div className="editor__segments-panel">
-                            <div className="editor__segments">
-                                {filteredSegments?.map((segment) => {
-                                    const label = transcript.speaker_labels.find(l => l.speaker_id === segment.speaker_id);
+                    <div className="editor__segments-panel">
+                        <div className="editor__segments">
+                            {filteredSegments?.map((segment) => {
+                                const label = transcript.speaker_labels.find(l => l.speaker_id === segment.speaker_id);
 
-                                    return (
-                                        <TranscriptSegment
-                                            key={segment.id}
-                                            ref={(el) => {
-                                                if (el) segmentRefsMap.current.set(segment.id, el);
-                                                else segmentRefsMap.current.delete(segment.id);
-                                            }}
-                                            id={segment.id}
-                                            startTime={segment.start_time}
-                                            endTime={segment.end_time}
-                                            text={segment.text}
-                                            originalText={segment.original_text}
-                                            speakerId={segment.speaker_id}
-                                            speakerName={getSpeakerName(segment.speaker_id)}
-                                            speakerColor={getSpeakerColor(segment.speaker_id)}
-                                            words={segment.words}
-                                            isEdited={segment.is_edited}
-                                            showFillerWords={showFillerWords}
-                                            isActive={segment.id === activeSegmentId}
-                                            hasVoiceId={!!label?.voice_id}
-                                            regeneratedAudioUrl={localRegeneratedUrl(segment.id)}
-                                            onTextChange={(text) => handleSegmentTextChange(segment.id, text)}
-                                            onSpeakerClick={() => label && handleSpeakerClick(label.id, getSpeakerName(segment.speaker_id))}
-                                            onSeek={handleSeek}
-                                            onRegenerate={() => regenerateSegmentAudio(segment.id)}
-                                            onRegeneratedReady={(url) => setLocalRegeneratedUrl(segment.id, url)}
-                                            onClearRegenerated={() => setLocalRegeneratedUrl(segment.id, null)}
-                                        />
-                                    );
-                                })}
-                            </div>
+                                return (
+                                    <TranscriptSegment
+                                        key={segment.id}
+                                        ref={(el) => {
+                                            if (el) segmentRefsMap.current.set(segment.id, el);
+                                            else segmentRefsMap.current.delete(segment.id);
+                                        }}
+                                        id={segment.id}
+                                        startTime={segment.start_time}
+                                        endTime={segment.end_time}
+                                        text={segment.text}
+                                        originalText={segment.original_text}
+                                        speakerId={segment.speaker_id}
+                                        speakerName={getSpeakerName(segment.speaker_id)}
+                                        speakerColor={getSpeakerColor(segment.speaker_id)}
+                                        words={segment.words}
+                                        isEdited={segment.is_edited}
+                                        showFillerWords={showFillerWords}
+                                        isActive={segment.id === activeSegmentId}
+                                        hasVoiceId={!!label?.voice_id}
+                                        regeneratedAudioUrl={localRegeneratedUrl(segment.id)}
+                                        onTextChange={(text) => handleSegmentTextChange(segment.id, text)}
+                                        onSpeakerClick={() => label && handleSpeakerClick(label.id, getSpeakerName(segment.speaker_id))}
+                                        onSeek={handleSeek}
+                                        onRegenerate={() => regenerateSegmentAudio(segment.id)}
+                                        onRegeneratedReady={(url) => setLocalRegeneratedUrl(segment.id, url)}
+                                        onClearRegenerated={() => setLocalRegeneratedUrl(segment.id, null)}
+                                    />
+                                );
+                            })}
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Keyboard Shortcuts Help */}
+            {/* Keyboard Shortcuts */}
             <div className="editor__shortcuts">
-                <span>⌘/Ctrl + Z: Undo</span>
-                <span>⌘/Ctrl + Shift + Z: Redo</span>
-                <span>⌘/Ctrl + S: Save</span>
+                <Keyboard size={14} />
+                <span>⌘Z Undo</span>
+                <span>⌘⇧Z Redo</span>
+                <span>⌘S Save</span>
             </div>
         </div>
     );

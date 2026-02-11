@@ -4,13 +4,16 @@
     gap: var(--space-sm);
     padding: var(--space-md);
     border-radius: var(--radius-md);
-    background: var(--color-bg-glass);
+    background: var(--color-bg-secondary);
+    border: 1px solid rgba(0, 0, 0, 0.06);
     transition: all var(--transition-fast);
     animation: slideUp var(--transition-normal) ease;
 }
 
 .segment:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--color-bg-secondary);
+    border-color: rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-sm);
 }
 
 .segment--edited {
@@ -28,14 +31,25 @@
     font-size: var(--font-size-xs);
     font-family: monospace;
     color: var(--color-text-muted);
-    min-width: 40px;
+    min-width: 48px;
+    padding: 2px 6px;
+    background: var(--color-bg-tertiary);
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.segment__timestamp:hover {
+    background: var(--color-accent-primary);
+    color: white;
 }
 
 .segment__speaker {
     display: inline-flex;
     align-items: center;
     gap: var(--space-xs);
-    padding: 2px var(--space-sm);
+    padding: 4px var(--space-sm);
     font-size: var(--font-size-xs);
     font-weight: 500;
     font-family: inherit;
@@ -46,8 +60,12 @@
 }
 
 .segment__speaker:hover {
-    transform: scale(1.05);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    transform: scale(1.02);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.segment__speaker--unnamed {
+    padding-right: var(--space-md);
 }
 
 .segment__speaker-name {
@@ -58,9 +76,17 @@
 }
 
 .segment__speaker-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     font-size: 10px;
-    opacity: 0;
-    transition: opacity var(--transition-fast);
+    opacity: 0.8;
+    margin-left: 2px;
+}
+
+.segment__speaker-hint-text {
+    font-size: 10px;
+    font-weight: 400;
 }
 
 .segment__speaker:hover .segment__speaker-hint {
@@ -68,12 +94,69 @@
 }
 
 .segment__edited-badge {
-    font-size: var(--font-size-xs);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-accent-success);
     margin-left: auto;
 }
 
 .segment__content {
-    padding-left: calc(40px + var(--space-sm));
+    padding-left: calc(48px + var(--space-sm));
+}
+
+/* Diff display */
+.segment__diff {
+    margin-bottom: var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
+    background: var(--color-diff-removed);
+    border-radius: var(--radius-sm);
+    border-left: 3px solid var(--color-diff-removed-text);
+}
+
+.segment__diff-original {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+}
+
+.segment__diff-label {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--color-diff-removed-text);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.segment__diff-text {
+    font-size: var(--font-size-sm);
+    color: var(--color-diff-removed-text);
+    text-decoration: line-through;
+    opacity: 0.8;
+}
+
+/* Inline diff styles (Grammarly-style) */
+.diff-removed {
+    background-color: var(--color-diff-removed);
+    color: #991b1b;
+    text-decoration: line-through;
+    padding: 2px 4px;
+    border-radius: 3px;
+    margin: 0 1px;
+}
+
+.diff-added {
+    background-color: var(--color-diff-added);
+    color: #166534;
+    padding: 2px 4px;
+    border-radius: 3px;
+    margin: 0 1px;
+    font-weight: 500;
+}
+
+.segment__text--with-diff {
+    line-height: 1.8;
+    /* Better spacing for inline diffs */
 }
 
 .segment__text {
@@ -88,7 +171,19 @@
 }
 
 .segment__text:hover {
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--color-bg-tertiary);
+}
+
+.segment__text--edited {
+    background: var(--color-diff-added);
+    color: var(--color-diff-added-text);
+    padding: var(--space-sm) var(--space-md);
+    margin: 0;
+    border-left: 3px solid var(--color-diff-added-text);
+}
+
+.segment__text--edited:hover {
+    background: var(--color-diff-added);
 }
 
 .segment__editor {
@@ -108,13 +203,13 @@
 }
 
 .segment__editor:focus {
-    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
 }
 
 /* Filler word styling */
 .segment__text .filler-word {
     color: var(--color-text-muted);
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--color-bg-tertiary);
     padding: 0 2px;
     border-radius: 2px;
     font-style: italic;

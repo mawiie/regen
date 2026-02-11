@@ -3,15 +3,36 @@
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { 
+    ChevronLeft, 
+    Undo2, 
+    Redo2, 
+    Download, 
+    FileText, 
+    Film, 
+    FileJson,
+    Loader2,
+    Check,
+    X,
+    Music
+} from 'lucide-react';
 import { useTranscription } from '../hooks/useTranscription';
 import { TranscriptSegment } from './TranscriptSegment';
 import { LoadingSpinner } from './LoadingSpinner';
-import { exportTranscript, downloadExport } from '../services/api';
+import { exportTranscript, downloadExport, getAudioUrl } from '../services/api';
 import './TranscriptEditor.css';
 
 interface TranscriptEditorProps {
     transcriptId: string;
     onBack: () => void;
+}
+
+// Format duration
+function formatDuration(seconds: number | null): string {
+    if (!seconds) return '--:--';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
 export function TranscriptEditor({ transcriptId, onBack }: TranscriptEditorProps) {
@@ -36,6 +57,9 @@ export function TranscriptEditor({ transcriptId, onBack }: TranscriptEditorProps
     const [newSpeakerName, setNewSpeakerName] = useState('');
     const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error' | null>(null);
     const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
+    const [audioUrl, setAudioUrl] = useState<string | null>(null);
+
+    const audioRef = useRef<HTMLAudioElement>(null);
 
     const renameInputRef = useRef<HTMLInputElement>(null);
     const exportDropdownRef = useRef<HTMLDivElement>(null);
@@ -44,6 +68,22 @@ export function TranscriptEditor({ transcriptId, onBack }: TranscriptEditorProps
     useEffect(() => {
         loadTranscript(transcriptId);
     }, [transcriptId, loadTranscript]);
+
+    // Load audio URL when transcript is loaded
+    useEffect(() => {
+        if (transcript?.storage_path) {
+            const url = getAudioUrl(transcript.storage_path);
+            setAudioUrl(url);
+        }
+    }, [transcript?.storage_path]);
+
+    // Handle seeking to a specific time
+    const handleSeek = useCallback((time: number) => {
+        if (audioRef.current) {
+            audioRef.current.currentTime = time;
+            audioRef.current.play();
+        }
+    }, []);
 
     // Handle keyboard shortcuts
     useEffect(() => {
@@ -167,9 +207,7 @@ export function TranscriptEditor({ transcriptId, onBack }: TranscriptEditorProps
             <header className="editor__header">
                 <div className="editor__header-left">
                     <button className="btn btn-ghost" onClick={onBack}>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
-                            <polyline points="15 18 9 12 15 6" />
-                        </svg>
+                        <ChevronLeft size={20} />
                         Back
                     </button>
                     <div className="editor__title">
@@ -184,9 +222,9 @@ export function TranscriptEditor({ transcriptId, onBack }: TranscriptEditorProps
                     {/* Save Status */}
                     {saveStatus && (
                         <span className={`editor__save-status editor__save-status--${saveStatus}`}>
-                            {saveStatus === 'saving' && '⏳ Saving...'}
-                            {saveStatus === 'saved' && '✓ Saved'}
-                            {saveStatus === 'error' && '✗ Error saving'}
+                            {saveStatus === 'saving' && <><Loader2 size={14} className="animate-spin" /> Saving...</>}
+                            {saveStatus === 'saved' && <><Check size={14} /> Saved</>}
+                            {saveStatus === 'error' && <><X size={14} /> Error saving</>}
                         </span>
                     )}
 
@@ -198,10 +236,7 @@ export function TranscriptEditor({ transcriptId, onBack }: TranscriptEditorProps
                             disabled={!canUndo}
                             title="Undo (Ctrl+Z)"
                         >
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
-                                <path d="M3 7v6h6" />
-                                <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
-                            </svg>
+                            <Undo2 size={20} />
                         </button>
                         <button
                             className="btn btn-ghost btn-icon"
@@ -209,10 +244,7 @@ export function TranscriptEditor({ transcriptId, onBack }: TranscriptEditorProps
                             disabled={!canRedo}
                             title="Redo (Ctrl+Shift+Z)"
                         >
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
-                                <path d="M21 7v6h-6" />
-                                <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7" />
-                            </svg>
+                            <Redo2 size={20} />
                         </button>
                     </div>
 
@@ -222,23 +254,19 @@ export function TranscriptEditor({ transcriptId, onBack }: TranscriptEditorProps
                             className="btn btn-secondary"
                             onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
                         >
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                <polyline points="7 10 12 15 17 10" />
-                                <line x1="12" y1="15" x2="12" y2="3" />
-                            </svg>
+                            <Download size={18} />
                             Export
                         </button>
                         {exportDropdownOpen && (
                             <div className="editor__export-menu">
                                 <button onClick={() => handleExport('txt')}>
-                                    📄 Text (.txt)
+                                    <FileText size={16} /> Text (.txt)
                                 </button>
                                 <button onClick={() => handleExport('srt')}>
-                                    🎬 Subtitles (.srt)
+                                    <Film size={16} /> Subtitles (.srt)
                                 </button>
                                 <button onClick={() => handleExport('json')}>
-                                    📊 JSON (.json)
+                                    <FileJson size={16} /> JSON (.json)
                                 </button>
                             </div>
                         )}
@@ -309,29 +337,76 @@ export function TranscriptEditor({ transcriptId, onBack }: TranscriptEditorProps
                 </div>
             )}
 
-            {/* Segments */}
-            <div className="editor__segments">
-                {filteredSegments?.map((segment) => {
-                    const label = transcript.speaker_labels.find(l => l.speaker_id === segment.speaker_id);
-
-                    return (
-                        <TranscriptSegment
-                            key={segment.id}
-                            id={segment.id}
-                            startTime={segment.start_time}
-                            endTime={segment.end_time}
-                            text={segment.text}
-                            speakerId={segment.speaker_id}
-                            speakerName={getSpeakerName(segment.speaker_id)}
-                            speakerColor={getSpeakerColor(segment.speaker_id)}
-                            words={segment.words}
-                            isEdited={segment.is_edited}
-                            showFillerWords={showFillerWords}
-                            onTextChange={(text) => handleSegmentTextChange(segment.id, text)}
-                            onSpeakerClick={() => label && handleSpeakerClick(label.id, getSpeakerName(segment.speaker_id))}
+            {/* Two-Column Layout */}
+            <div className="editor__content">
+                {/* Left Column - Audio Player */}
+                <aside className="editor__audio-panel">
+                    <div className="editor__audio-title">
+                        <Music size={18} />
+                        Audio File
+                    </div>
+                    
+                    {audioUrl ? (
+                        <audio
+                            ref={audioRef}
+                            className="editor__audio-player"
+                            src={audioUrl}
+                            controls
                         />
-                    );
-                })}
+                    ) : (
+                        <div className="editor__audio-placeholder">
+                            Audio not available
+                        </div>
+                    )}
+                    
+                    <div className="editor__audio-info">
+                        <div className="editor__audio-info-row">
+                            <span className="editor__audio-info-label">Duration</span>
+                            <span className="editor__audio-info-value">{formatDuration(transcript.duration)}</span>
+                        </div>
+                        <div className="editor__audio-info-row">
+                            <span className="editor__audio-info-label">Speakers</span>
+                            <span className="editor__audio-info-value">{transcript.num_speakers}</span>
+                        </div>
+                        <div className="editor__audio-info-row">
+                            <span className="editor__audio-info-label">Segments</span>
+                            <span className="editor__audio-info-value">{transcript.segments.length}</span>
+                        </div>
+                    </div>
+                    
+                    <p className="editor__audio-hint">
+                        Click on any timestamp to seek to that position in the audio.
+                    </p>
+                </aside>
+
+                {/* Right Column - Transcript Segments */}
+                <div className="editor__segments-panel">
+                    <div className="editor__segments">
+                        {filteredSegments?.map((segment) => {
+                            const label = transcript.speaker_labels.find(l => l.speaker_id === segment.speaker_id);
+
+                            return (
+                                <TranscriptSegment
+                                    key={segment.id}
+                                    id={segment.id}
+                                    startTime={segment.start_time}
+                                    endTime={segment.end_time}
+                                    text={segment.text}
+                                    originalText={segment.original_text}
+                                    speakerId={segment.speaker_id}
+                                    speakerName={getSpeakerName(segment.speaker_id)}
+                                    speakerColor={getSpeakerColor(segment.speaker_id)}
+                                    words={segment.words}
+                                    isEdited={segment.is_edited}
+                                    showFillerWords={showFillerWords}
+                                    onTextChange={(text) => handleSegmentTextChange(segment.id, text)}
+                                    onSpeakerClick={() => label && handleSpeakerClick(label.id, getSpeakerName(segment.speaker_id))}
+                                    onSeek={handleSeek}
+                                />
+                            );
+                        })}
+                    </div>
+                </div>
             </div>
 
             {/* Keyboard Shortcuts Help */}

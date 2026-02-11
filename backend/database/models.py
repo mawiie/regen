@@ -165,9 +165,15 @@ def list_transcripts(limit: int = 50, offset: int = 0) -> List[dict]:
 
 # ----- Segment Operations -----
 
+# Batch size for segment inserts to avoid timeouts
+SEGMENT_BATCH_SIZE = 50
+
+
 def create_segments(transcript_id: str, segments: List[dict]) -> List[dict]:
     """
     Create multiple segments for a transcript.
+    
+    Inserts in batches to avoid write timeouts on large transcripts.
     
     Args:
         transcript_id: UUID of the parent transcript
@@ -197,11 +203,18 @@ def create_segments(transcript_id: str, segments: List[dict]) -> List[dict]:
             "updated_at": now,
         })
     
-    if segment_records:
-        result = client.table(SEGMENTS_TABLE).insert(segment_records).execute()
-        return result.data or []
+    if not segment_records:
+        return []
     
-    return []
+    # Insert in batches to avoid timeout
+    all_results = []
+    for i in range(0, len(segment_records), SEGMENT_BATCH_SIZE):
+        batch = segment_records[i:i + SEGMENT_BATCH_SIZE]
+        result = client.table(SEGMENTS_TABLE).insert(batch).execute()
+        if result.data:
+            all_results.extend(result.data)
+    
+    return all_results
 
 
 def update_segment(segment_id: str, **kwargs) -> Optional[dict]:
@@ -216,6 +229,24 @@ def update_segment(segment_id: str, **kwargs) -> Optional[dict]:
         dict or None: Updated segment record
     """
     client = get_client()
+    
+    # If text is being updated, try to save original_text
+    if "text" in kwargs:
+        try:
+            # First, get the current segment to check if original_text is set
+            current = client.table(SEGMENTS_TABLE)\
+                .select("text, original_text")\
+                .eq("id", segment_id)\
+                .execute()
+            
+            if current.data:
+                current_segment = current.data[0]
+                # If original_text is not set, save the current text as original
+                if not current_segment.get("original_text"):
+                    kwargs["original_text"] = current_segment["text"]
+        except Exception:
+            # Column might not exist yet, just proceed without it
+            pass
     
     kwargs["updated_at"] = datetime.utcnow().isoformat()
     kwargs["is_edited"] = True

@@ -3,6 +3,7 @@
  */
 
 import { useState } from 'react';
+import { Target, Clock, PencilLine, Download } from 'lucide-react';
 import { AudioUploader } from './components/AudioUploader';
 import { TranscriptEditor } from './components/TranscriptEditor';
 import './App.css';
@@ -58,22 +59,30 @@ function App() {
 
             <div className="app__features">
               <div className="app__feature">
-                <div className="app__feature-icon">🎯</div>
+                <div className="app__feature-icon">
+                  <Target size={24} />
+                </div>
                 <h3>Speaker Detection</h3>
                 <p>Automatically identifies and labels different speakers</p>
               </div>
               <div className="app__feature">
-                <div className="app__feature-icon">⏱️</div>
+                <div className="app__feature-icon">
+                  <Clock size={24} />
+                </div>
                 <h3>Timestamps</h3>
                 <p>Word-level timestamps for precise navigation</p>
               </div>
               <div className="app__feature">
-                <div className="app__feature-icon">✏️</div>
+                <div className="app__feature-icon">
+                  <PencilLine size={24} />
+                </div>
                 <h3>Easy Editing</h3>
                 <p>Click to edit any segment with undo/redo support</p>
               </div>
               <div className="app__feature">
-                <div className="app__feature-icon">📤</div>
+                <div className="app__feature-icon">
+                  <Download size={24} />
+                </div>
                 <h3>Export Options</h3>
                 <p>Download as TXT, SRT subtitles, or JSON</p>
               </div>

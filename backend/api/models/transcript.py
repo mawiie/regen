@@ -50,6 +50,7 @@ class Segment(SegmentBase):
     """Full segment model with metadata."""
     id: str
     segment_index: int
+    original_text: Optional[str] = None
     is_edited: bool = False
     created_at: datetime
     updated_at: datetime

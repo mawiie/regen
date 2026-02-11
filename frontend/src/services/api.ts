@@ -35,6 +35,7 @@ export interface Segment {
     start_time: number;
     end_time: number;
     text: string;
+    original_text?: string;
     speaker_id: string;
     confidence: number;
     words: Word[];
@@ -300,4 +301,11 @@ export function downloadExport(result: ExportResult): void {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+}
+
+/**
+ * Get audio URL for playback
+ */
+export function getAudioUrl(storagePath: string): string {
+    return `${API_BASE_URL}/audio/${encodeURIComponent(storagePath)}`;
 }

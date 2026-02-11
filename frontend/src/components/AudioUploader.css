@@ -5,18 +5,18 @@
     justify-content: center;
     min-height: 300px;
     padding: var(--space-2xl);
-    border: 2px dashed rgba(255, 255, 255, 0.2);
+    border: 2px dashed rgba(0, 0, 0, 0.15);
     border-radius: var(--radius-xl);
-    background: var(--color-bg-glass);
-    backdrop-filter: blur(20px);
+    background: var(--color-bg-secondary);
     cursor: pointer;
     transition: all var(--transition-normal);
+    box-shadow: var(--shadow-sm);
 }
 
 .uploader:hover,
 .uploader--dragging {
     border-color: var(--color-accent-primary);
-    background: rgba(139, 92, 246, 0.1);
+    background: rgba(99, 102, 241, 0.05);
     box-shadow: var(--shadow-glow);
 }
 

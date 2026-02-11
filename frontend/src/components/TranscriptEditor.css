@@ -2,7 +2,7 @@
     display: flex;
     flex-direction: column;
     min-height: 100vh;
-    background: var(--gradient-dark);
+    background: var(--color-bg-primary);
 }
 
 .editor--loading,
@@ -24,7 +24,7 @@
     gap: var(--space-lg);
     padding: var(--space-md) var(--space-lg);
     background: var(--color-bg-secondary);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
     position: sticky;
     top: 0;
     z-index: 100;
@@ -57,14 +57,7 @@
     gap: var(--space-md);
 }
 
-.editor__save-status {
-    font-size: var(--font-size-sm);
-    padding: var(--space-xs) var(--space-sm);
-    border-radius: var(--radius-sm);
-    animation: fadeIn var(--transition-fast);
-}
-
-.editor__save-status--saving {
+.editor__save-status {\n    display: inline-flex;\n    align-items: center;\n    gap: var(--space-xs);\n    font-size: var(--font-size-sm);\n    padding: var(--space-xs) var(--space-sm);\n    border-radius: var(--radius-sm);\n    animation: fadeIn var(--transition-fast);\n}\n\n.editor__save-status .animate-spin {\n    animation: spin 1s linear infinite;\n}\n\n@keyframes spin {\n    from { transform: rotate(0deg); }\n    to { transform: rotate(360deg); }\n}\n\n.editor__save-status--saving {
     color: var(--color-text-secondary);
 }
 
@@ -95,8 +88,8 @@
     margin-top: var(--space-xs);
     min-width: 160px;
     padding: var(--space-xs);
-    background: var(--color-bg-tertiary);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--color-bg-secondary);
+    border: 1px solid rgba(0, 0, 0, 0.1);
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-lg);
     z-index: 200;
@@ -120,7 +113,7 @@
 }
 
 .editor__export-menu button:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--color-bg-tertiary);
 }
 
 /* Toolbar */
@@ -131,7 +124,7 @@
     gap: var(--space-lg);
     padding: var(--space-md) var(--space-lg);
     background: var(--color-bg-secondary);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .editor__speaker-filters {
@@ -159,12 +152,12 @@
 }
 
 .editor__speaker-chip:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.08);
 }
 
 .editor__speaker-chip.active {
-    color: var(--color-text-primary);
-    background: rgba(139, 92, 246, 0.2);
+    color: var(--color-accent-primary);
+    background: rgba(99, 102, 241, 0.1);
     border-color: var(--color-accent-primary);
 }
 
@@ -219,11 +212,96 @@
     gap: var(--space-sm);
 }
 
+/* Main Content - Two Column Layout */
+.editor__content {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* Audio Panel (Left Column) */
+.editor__audio-panel {
+    width: 350px;
+    min-width: 300px;
+    padding: var(--space-lg);
+    background: var(--color-bg-secondary);
+    border-right: 1px solid rgba(0, 0, 0, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+    position: sticky;
+    top: 60px;
+    height: calc(100vh - 120px);
+    overflow-y: auto;
+}
+
+.editor__audio-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-text-primary);
+}
+
+.editor__audio-player {
+    width: 100%;
+    border-radius: var(--radius-md);
+}
+
+.editor__audio-info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    padding: var(--space-md);
+    background: var(--color-bg-tertiary);
+    border-radius: var(--radius-md);
+}
+
+.editor__audio-info-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: var(--font-size-sm);
+}
+
+.editor__audio-info-label {
+    color: var(--color-text-secondary);
+}
+
+.editor__audio-info-value {
+    color: var(--color-text-primary);
+    font-weight: 500;
+}
+
+.editor__audio-hint {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    text-align: center;
+    padding: var(--space-sm);
+    background: var(--color-bg-tertiary);
+    border-radius: var(--radius-sm);
+}
+
+.editor__audio-placeholder {
+    padding: var(--space-lg);
+    text-align: center;
+    color: var(--color-text-muted);
+    background: var(--color-bg-tertiary);
+    border-radius: var(--radius-md);
+}
+
+/* Segments Panel (Right Column) */
+.editor__segments-panel {
+    flex: 1;
+    overflow-y: auto;
+    height: calc(100vh - 120px);
+}
+
 /* Segments Container */
 .editor__segments {
     flex: 1;
     padding: var(--space-lg);
-    max-width: 900px;
+    max-width: 800px;
     margin: 0 auto;
     width: 100%;
 }
@@ -241,11 +319,29 @@
     font-size: var(--font-size-xs);
     color: var(--color-text-muted);
     background: var(--color-bg-secondary);
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 /* Responsive */
 @media (max-width: 768px) {
+    .editor__content {
+        flex-direction: column;
+    }
+    
+    .editor__audio-panel {
+        width: 100%;
+        min-width: unset;
+        height: auto;
+        position: relative;
+        top: 0;
+        border-right: none;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    }
+    
+    .editor__segments-panel {
+        height: auto;
+    }
+    
     .editor__header {
         flex-direction: column;
         align-items: stretch;

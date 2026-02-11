@@ -80,6 +80,9 @@ export function useTranscription(): UseTranscriptionResult {
         const segment = transcript.segments.find((s) => s.id === segmentId);
         if (!segment || segment.text === text) return;
 
+        // Store original text for diff display (before any edits)
+        const originalText = segment.original_text || segment.text;
+
         // Add to history if not an undo/redo operation
         if (!isUndoRedo.current) {
             const historyItem: EditHistoryItem = {
@@ -104,20 +107,39 @@ export function useTranscription(): UseTranscriptionResult {
             setHistoryIndex((prev) => Math.min(prev + 1, MAX_HISTORY - 1));
         }
 
-        // Update local state optimistically
+        // Update local state optimistically (include original_text for diff)
         setTranscript((prev) => {
             if (!prev) return prev;
             return {
                 ...prev,
                 segments: prev.segments.map((s) =>
-                    s.id === segmentId ? { ...s, text, is_edited: true } : s
+                    s.id === segmentId 
+                        ? { ...s, text, is_edited: true, original_text: originalText } 
+                        : s
                 ),
             };
         });
 
-        // Update on server
+        // Update on server and use the response
         try {
-            await updateSegment(segmentId, { text });
+            const updatedSegment = await updateSegment(segmentId, { text });
+            // Update with server response to get accurate original_text
+            setTranscript((prev) => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    segments: prev.segments.map((s) =>
+                        s.id === segmentId 
+                            ? { 
+                                ...s, 
+                                text: updatedSegment.text,
+                                is_edited: updatedSegment.is_edited,
+                                original_text: updatedSegment.original_text
+                              } 
+                            : s
+                    ),
+                };
+            });
         } catch (err) {
             // Revert on error
             setTranscript((prev) => {
@@ -125,7 +147,7 @@ export function useTranscription(): UseTranscriptionResult {
                 return {
                     ...prev,
                     segments: prev.segments.map((s) =>
-                        s.id === segmentId ? { ...s, text: segment.text } : s
+                        s.id === segmentId ? { ...s, text: segment.text, original_text: segment.original_text } : s
                     ),
                 };
             });

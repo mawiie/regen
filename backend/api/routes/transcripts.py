@@ -2,7 +2,7 @@
 Transcript API routes - CRUD operations for transcripts, segments, and speaker labels.
 """
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from typing import List, Optional
 
 from api.models.transcript import (
@@ -16,6 +16,7 @@ from api.models.transcript import (
     SpeakerLabelUpdate,
     ErrorResponse
 )
+from api.middleware.auth import get_current_user
 from database.models import (
     get_transcript,
     get_transcript_with_segments,
@@ -39,7 +40,7 @@ router = APIRouter()
     "/audio/{storage_path:path}",
     summary="Get audio file URL"
 )
-async def get_audio_file(storage_path: str):
+async def get_audio_file(storage_path: str, user_id: str = Depends(get_current_user)):
     """
     Get a signed URL for an audio file.
     
@@ -67,14 +68,15 @@ async def get_audio_file(storage_path: str):
 )
 async def get_transcripts(
     limit: int = Query(default=50, ge=1, le=100),
-    offset: int = Query(default=0, ge=0)
+    offset: int = Query(default=0, ge=0),
+    user_id: str = Depends(get_current_user),
 ):
     """
-    Get a paginated list of all transcripts.
+    Get a paginated list of the authenticated user's transcripts.
     
     Does not include segments for performance.
     """
-    transcripts = list_transcripts(limit=limit, offset=offset)
+    transcripts = list_transcripts(limit=limit, offset=offset, user_id=user_id)
     return transcripts
 
 
@@ -83,7 +85,7 @@ async def get_transcripts(
     response_model=TranscriptResponse,
     responses={404: {"model": ErrorResponse}}
 )
-async def get_transcript_detail(transcript_id: str):
+async def get_transcript_detail(transcript_id: str, user_id: str = Depends(get_current_user)):
     """
     Get a transcript with all segments and speaker labels.
     """
@@ -91,6 +93,10 @@ async def get_transcript_detail(transcript_id: str):
     
     if not transcript:
         raise HTTPException(status_code=404, detail="Transcript not found")
+    
+    # Verify ownership
+    if transcript.get("user_id") and transcript["user_id"] != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this transcript")
     
     return transcript
 
@@ -100,7 +106,7 @@ async def get_transcript_detail(transcript_id: str):
     response_model=TranscriptionStatusResponse,
     responses={404: {"model": ErrorResponse}}
 )
-async def get_transcript_status(transcript_id: str):
+async def get_transcript_status(transcript_id: str, user_id: str = Depends(get_current_user)):
     """
     Get the status of a transcript (for polling during transcription).
     """
@@ -108,6 +114,10 @@ async def get_transcript_status(transcript_id: str):
     
     if not transcript:
         raise HTTPException(status_code=404, detail="Transcript not found")
+    
+    # Verify ownership
+    if transcript.get("user_id") and transcript["user_id"] != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this transcript")
     
     # Map status to progress
     progress_map = {
@@ -133,7 +143,7 @@ async def get_transcript_status(transcript_id: str):
     "/transcripts/{transcript_id}",
     responses={404: {"model": ErrorResponse}}
 )
-async def remove_transcript(transcript_id: str):
+async def remove_transcript(transcript_id: str, user_id: str = Depends(get_current_user)):
     """
     Delete a transcript and all associated data.
     """
@@ -141,6 +151,10 @@ async def remove_transcript(transcript_id: str):
     
     if not transcript:
         raise HTTPException(status_code=404, detail="Transcript not found")
+    
+    # Verify ownership
+    if transcript.get("user_id") and transcript["user_id"] != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this transcript")
     
     # Delete audio file from storage
     if transcript.get("storage_path"):
@@ -159,7 +173,7 @@ async def remove_transcript(transcript_id: str):
     response_model=List[Segment],
     responses={404: {"model": ErrorResponse}}
 )
-async def get_transcript_segments(transcript_id: str):
+async def get_transcript_segments(transcript_id: str, user_id: str = Depends(get_current_user)):
     """
     Get all segments for a transcript.
     """
@@ -167,6 +181,10 @@ async def get_transcript_segments(transcript_id: str):
     
     if not transcript:
         raise HTTPException(status_code=404, detail="Transcript not found")
+    
+    # Verify ownership
+    if transcript.get("user_id") and transcript["user_id"] != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this transcript")
     
     segments = get_segments(transcript_id)
     return segments
@@ -177,7 +195,7 @@ async def get_transcript_segments(transcript_id: str):
     response_model=Segment,
     responses={404: {"model": ErrorResponse}}
 )
-async def edit_segment(segment_id: str, update: SegmentUpdate):
+async def edit_segment(segment_id: str, update: SegmentUpdate, user_id: str = Depends(get_current_user)):
     """
     Update a segment's text or speaker assignment.
     
@@ -203,7 +221,8 @@ async def edit_segment(segment_id: str, update: SegmentUpdate):
 )
 async def bulk_update_segments(
     transcript_id: str,
-    updates: List[dict]
+    updates: List[dict],
+    user_id: str = Depends(get_current_user),
 ):
     """
     Update multiple segments at once.
@@ -220,6 +239,10 @@ async def bulk_update_segments(
     
     if not transcript:
         raise HTTPException(status_code=404, detail="Transcript not found")
+    
+    # Verify ownership
+    if transcript.get("user_id") and transcript["user_id"] != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this transcript")
     
     results = []
     for update in updates:
@@ -239,7 +262,7 @@ async def bulk_update_segments(
     response_model=List[SpeakerLabel],
     responses={404: {"model": ErrorResponse}}
 )
-async def get_transcript_speakers(transcript_id: str):
+async def get_transcript_speakers(transcript_id: str, user_id: str = Depends(get_current_user)):
     """
     Get all speaker labels for a transcript.
     """
@@ -257,7 +280,7 @@ async def get_transcript_speakers(transcript_id: str):
     response_model=SpeakerLabel,
     responses={404: {"model": ErrorResponse}}
 )
-async def update_speaker(speaker_label_id: str, update: SpeakerLabelUpdate):
+async def update_speaker(speaker_label_id: str, update: SpeakerLabelUpdate, user_id: str = Depends(get_current_user)):
     """
     Update a speaker's custom name or color.
     
@@ -284,7 +307,8 @@ async def update_speaker(speaker_label_id: str, update: SpeakerLabelUpdate):
 )
 async def export_transcript(
     transcript_id: str,
-    format: str = Query(default="txt", enum=["txt", "srt", "json"])
+    format: str = Query(default="txt", enum=["txt", "srt", "json"]),
+    user_id: str = Depends(get_current_user),
 ):
     """
     Export a transcript in various formats.

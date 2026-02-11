@@ -1,0 +1,107 @@
+.home {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 57px); /* account for header */
+}
+
+.home__main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-2xl) var(--space-lg);
+  max-width: 800px;
+  margin: 0 auto;
+  width: 100%;
+  animation: fadeIn var(--transition-normal) ease;
+}
+
+.home__intro {
+  text-align: center;
+  margin-bottom: var(--space-2xl);
+}
+
+.home__intro h2 {
+  font-size: var(--font-size-3xl);
+  font-weight: 700;
+  margin-bottom: var(--space-md);
+  color: var(--color-text-primary);
+}
+
+.home__intro p {
+  font-size: var(--font-size-lg);
+  color: var(--color-text-secondary);
+  max-width: 600px;
+  line-height: 1.6;
+}
+
+/* Features Grid */
+.home__features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-lg);
+  width: 100%;
+  margin-top: var(--space-2xl);
+}
+
+.home__feature {
+  text-align: center;
+  padding: var(--space-lg);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-secondary);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  transition: all var(--transition-normal);
+  box-shadow: var(--shadow-sm);
+}
+
+.home__feature:hover {
+  transform: translateY(-4px);
+  border-color: rgba(99, 102, 241, 0.3);
+  box-shadow: 0 8px 32px rgba(99, 102, 241, 0.1);
+}
+
+.home__feature-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin: 0 auto var(--space-md);
+  background: var(--gradient-primary);
+  border-radius: var(--radius-md);
+  color: white;
+}
+
+.home__feature h3 {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  margin-bottom: var(--space-xs);
+  color: var(--color-text-primary);
+}
+
+.home__feature p {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .home__intro h2 {
+    font-size: var(--font-size-2xl);
+  }
+
+  .home__intro p {
+    font-size: var(--font-size-base);
+  }
+
+  .home__features {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .home__features {
+    grid-template-columns: 1fr;
+  }
+}

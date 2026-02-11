@@ -2,7 +2,7 @@
 Upload API routes.
 """
 
-from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
+from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks, Depends
 from typing import Optional
 import asyncio
 
@@ -12,6 +12,7 @@ from api.models.transcript import (
     TranscriptStatus,
     ErrorResponse
 )
+from api.middleware.auth import get_current_user
 from services.storage import (
     validate_audio_file,
     upload_to_supabase,
@@ -90,6 +91,7 @@ async def process_transcription(
 )
 async def upload_audio(
     file: UploadFile = File(..., description="Audio file to upload"),
+    user_id: str = Depends(get_current_user),
 ):
     """
     Upload an audio file for transcription.
@@ -122,7 +124,7 @@ async def upload_audio(
         storage_path, _ = await upload_to_supabase(file, transcript_id)
         
         # Create database record
-        transcript = create_transcript(file.filename, storage_path)
+        transcript = create_transcript(file.filename, storage_path, user_id=user_id)
         
         if not transcript:
             raise HTTPException(
@@ -151,7 +153,8 @@ async def upload_audio(
 async def start_transcription(
     transcript_id: str,
     background_tasks: BackgroundTasks,
-    word_boost: Optional[str] = None
+    word_boost: Optional[str] = None,
+    user_id: str = Depends(get_current_user),
 ):
     """
     Start transcription for an uploaded audio file.
@@ -168,6 +171,10 @@ async def start_transcription(
     
     if not transcript:
         raise HTTPException(status_code=404, detail="Transcript not found")
+    
+    # Verify ownership
+    if transcript.get("user_id") and transcript["user_id"] != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this transcript")
     
     if transcript["status"] == "processing":
         raise HTTPException(

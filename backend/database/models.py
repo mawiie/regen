@@ -16,13 +16,14 @@ from .db import (
 
 # ----- Transcript Operations -----
 
-def create_transcript(filename: str, storage_path: str) -> dict:
+def create_transcript(filename: str, storage_path: str, user_id: Optional[str] = None) -> dict:
     """
     Create a new transcript record.
     
     Args:
         filename: Original audio filename
         storage_path: Path in Supabase Storage
+        user_id: UUID of the authenticated user
         
     Returns:
         dict: Created transcript record
@@ -37,6 +38,9 @@ def create_transcript(filename: str, storage_path: str) -> dict:
         "created_at": datetime.utcnow().isoformat(),
         "updated_at": datetime.utcnow().isoformat(),
     }
+    
+    if user_id:
+        data["user_id"] = user_id
     
     result = client.table(TRANSCRIPTS_TABLE).insert(data).execute()
     return result.data[0] if result.data else None
@@ -141,24 +145,28 @@ def delete_transcript(transcript_id: str) -> bool:
     return len(result.data) > 0 if result.data else False
 
 
-def list_transcripts(limit: int = 50, offset: int = 0) -> List[dict]:
+def list_transcripts(limit: int = 50, offset: int = 0, user_id: Optional[str] = None) -> List[dict]:
     """
-    List all transcripts with pagination.
+    List transcripts with pagination, optionally filtered by user.
     
     Args:
         limit: Maximum number of records to return
         offset: Number of records to skip
+        user_id: If provided, only return transcripts belonging to this user
         
     Returns:
         List[dict]: List of transcript records
     """
     client = get_client()
     
-    result = client.table(TRANSCRIPTS_TABLE)\
+    query = client.table(TRANSCRIPTS_TABLE)\
         .select("id, filename, status, duration, num_speakers, created_at, updated_at")\
-        .order("created_at", desc=True)\
-        .range(offset, offset + limit - 1)\
-        .execute()
+        .order("created_at", desc=True)
+    
+    if user_id:
+        query = query.eq("user_id", user_id)
+    
+    result = query.range(offset, offset + limit - 1).execute()
     
     return result.data or []
 

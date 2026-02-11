@@ -2,7 +2,31 @@
  * API service for backend communication
  */
 
+import { supabase } from '../lib/supabase';
+
 const API_BASE_URL = 'http://localhost:8000/api';
+
+/**
+ * Get the current Supabase access token for API authorization.
+ */
+async function getAccessToken(): Promise<string | null> {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token ?? null;
+}
+
+/**
+ * Wrapper around fetch that automatically attaches the Authorization header.
+ */
+async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
+    const token = await getAccessToken();
+    const headers: Record<string, string> = {
+        ...(options.headers as Record<string, string> || {}),
+    };
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+    return fetch(url, { ...options, headers });
+}
 
 // Types
 export interface Transcript {
@@ -90,7 +114,7 @@ export async function uploadAudio(file: File): Promise<UploadResponse> {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(`${API_BASE_URL}/upload`, {
+    const response = await authFetch(`${API_BASE_URL}/upload`, {
         method: 'POST',
         body: formData,
     });
@@ -117,7 +141,7 @@ export async function startTranscription(
 
     const url = `${API_BASE_URL}/transcripts/${transcriptId}/transcribe${params.toString() ? '?' + params : ''}`;
 
-    const response = await fetch(url, {
+    const response = await authFetch(url, {
         method: 'POST',
     });
 
@@ -135,7 +159,7 @@ export async function startTranscription(
 export async function getTranscriptionStatus(
     transcriptId: string
 ): Promise<TranscriptionStatus> {
-    const response = await fetch(`${API_BASE_URL}/transcripts/${transcriptId}/status`);
+    const response = await authFetch(`${API_BASE_URL}/transcripts/${transcriptId}/status`);
 
     if (!response.ok) {
         const error = await response.json();
@@ -152,7 +176,7 @@ export async function getTranscripts(
     limit = 50,
     offset = 0
 ): Promise<TranscriptListItem[]> {
-    const response = await fetch(
+    const response = await authFetch(
         `${API_BASE_URL}/transcripts?limit=${limit}&offset=${offset}`
     );
 
@@ -168,7 +192,7 @@ export async function getTranscripts(
  * Get a single transcript with all segments
  */
 export async function getTranscript(transcriptId: string): Promise<Transcript> {
-    const response = await fetch(`${API_BASE_URL}/transcripts/${transcriptId}`);
+    const response = await authFetch(`${API_BASE_URL}/transcripts/${transcriptId}`);
 
     if (!response.ok) {
         const error = await response.json();
@@ -185,7 +209,7 @@ export async function updateSegment(
     segmentId: string,
     update: { text?: string; speaker_id?: string }
 ): Promise<Segment> {
-    const response = await fetch(`${API_BASE_URL}/segments/${segmentId}`, {
+    const response = await authFetch(`${API_BASE_URL}/segments/${segmentId}`, {
         method: 'PATCH',
         headers: {
             'Content-Type': 'application/json',
@@ -208,7 +232,7 @@ export async function bulkUpdateSegments(
     transcriptId: string,
     updates: Array<{ id: string; text?: string; speaker_id?: string }>
 ): Promise<Segment[]> {
-    const response = await fetch(
+    const response = await authFetch(
         `${API_BASE_URL}/transcripts/${transcriptId}/segments/bulk`,
         {
             method: 'PATCH',
@@ -234,7 +258,7 @@ export async function updateSpeakerLabel(
     labelId: string,
     update: { custom_name?: string; color?: string }
 ): Promise<SpeakerLabel> {
-    const response = await fetch(`${API_BASE_URL}/speakers/${labelId}`, {
+    const response = await authFetch(`${API_BASE_URL}/speakers/${labelId}`, {
         method: 'PATCH',
         headers: {
             'Content-Type': 'application/json',
@@ -254,7 +278,7 @@ export async function updateSpeakerLabel(
  * Delete a transcript
  */
 export async function deleteTranscript(transcriptId: string): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/transcripts/${transcriptId}`, {
+    const response = await authFetch(`${API_BASE_URL}/transcripts/${transcriptId}`, {
         method: 'DELETE',
     });
 
@@ -271,7 +295,7 @@ export async function exportTranscript(
     transcriptId: string,
     format: 'txt' | 'srt' | 'json'
 ): Promise<ExportResult> {
-    const response = await fetch(
+    const response = await authFetch(
         `${API_BASE_URL}/transcripts/${transcriptId}/export?format=${format}`
     );
 

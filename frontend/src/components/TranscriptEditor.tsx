@@ -81,8 +81,12 @@ export function TranscriptEditor({ transcriptId, onBack }: TranscriptEditorProps
     // Load audio URL when transcript is loaded
     useEffect(() => {
         if (transcript?.storage_path) {
-            const url = getAudioUrl(transcript.storage_path);
-            setAudioUrl(url);
+            getAudioUrl(transcript.storage_path)
+                .then(url => setAudioUrl(url))
+                .catch(err => {
+                    console.error('Failed to load audio URL:', err);
+                    setAudioUrl(null);
+                });
         }
     }, [transcript?.storage_path]);
 

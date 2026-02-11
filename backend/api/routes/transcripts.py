@@ -48,16 +48,15 @@ async def get_audio_file(storage_path: str, user_id: str = Depends(get_current_u
     Get a signed URL for an audio file.
     
     The storage_path should be URL-encoded if it contains special characters.
-    Returns a redirect to the signed URL.
+    Returns the signed URL as JSON so the frontend can use it directly.
     """
-    from fastapi.responses import RedirectResponse
     from services.storage import get_audio_url
     
     try:
         signed_url = await get_audio_url(storage_path)
         if not signed_url:
             raise HTTPException(status_code=404, detail="Audio file not found")
-        return RedirectResponse(url=signed_url)
+        return {"url": signed_url}
     except Exception as e:
         raise HTTPException(status_code=404, detail=f"Audio file not found: {str(e)}")
 

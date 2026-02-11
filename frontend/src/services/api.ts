@@ -331,9 +331,15 @@ export function downloadExport(result: ExportResult): void {
 
 /**
  * Get audio URL for playback
+ * Fetches the signed URL from the backend
  */
-export function getAudioUrl(storagePath: string): string {
-    return `${API_BASE_URL}/audio/${encodeURIComponent(storagePath)}`;
+export async function getAudioUrl(storagePath: string): Promise<string> {
+    const response = await authFetch(`${API_BASE_URL}/audio/${encodeURIComponent(storagePath)}`);
+    if (!response.ok) {
+        throw new Error('Failed to get audio URL');
+    }
+    const data = await response.json();
+    return data.url;
 }
 
 /**

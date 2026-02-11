@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ven/
+
+# Node
+node_modules/
+dist/
+.npm/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Backend specific
+backend/venv/
+
+# Frontend specific
+frontend/dist/
+frontend/node_modules/
